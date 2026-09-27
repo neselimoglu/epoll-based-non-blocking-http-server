@@ -22,7 +22,7 @@ This project is a high-performance, lightweight HTTP web server written entirely
 
 ## 🛠️ Build and Run Instructions
 
-This server requires a Linux environment (or WSL) as it relies on the Linux-specific `epoll` system call.
+This server requires a Linux environment as it relies on the Linux-specific `epoll` system call.
 
 **1. Compile the Server:**
 Navigate to the project directory and run:
