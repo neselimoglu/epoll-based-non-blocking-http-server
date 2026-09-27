@@ -58,7 +58,7 @@ void handle_http_request(char *buffer, int client_fd, int epoll_fd) {
 
     
     size_t res_len = strlen(response);
-    strncpy(clients[client_fd].write_buffer, response, res_len);
+    memcpy(clients[client_fd].write_buffer, response, res_len);
     clients[client_fd].write_len = res_len;
     clients[client_fd].write_pos = 0;
     clients[client_fd].keep_alive = keep_alive; 
