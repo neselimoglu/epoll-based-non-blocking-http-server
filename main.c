@@ -11,14 +11,24 @@
 #include <signal.h> 
 
 #include "ClientsState.h"
-#include "HTTP.h"
+#include "CommandParser.h"
+#include "HashTable.h"
 
 #define MAX_EVENTS 64
+
+
+void set_nonblocking(int sockfd){
+    int flags = fcntl(sockfd, F_GETFL, 0);
+    if(flags != -1) {
+        fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
+    }
+}
 
 int main(){
     signal(SIGPIPE, SIG_IGN);
 
     init_all_clients();
+    ht_init(); 
 
 
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -47,6 +57,8 @@ int main(){
 
     struct epoll_event events[MAX_EVENTS];
 
+    printf("Database Started (Port 8080). Connect with Telnet\n");
+
     while(1){
         int n = epoll_wait(epoll_fd, events, MAX_EVENTS, 1000);
         if(n == -1) break;
@@ -54,7 +66,6 @@ int main(){
         time_t now = time(NULL);
         for(int i = 0; i < MAX_CLIENTS; i++) {
             if(clients[i].fd != -1) {
-                
                 if(now - clients[i].last_active > 50) { 
                     close_client(clients[i].fd);
                 }
@@ -65,13 +76,11 @@ int main(){
             uint32_t current_events = events[i].events;
             int active_fd = events[i].data.fd;
 
-            
             if (current_events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP)) {
                 close_client(active_fd);
                 continue;
             }
 
-            
             if(active_fd == server_fd){
                 while(1) {
                     struct sockaddr_in client_addr;
@@ -106,7 +115,6 @@ int main(){
                         break;
                     }
                 }
-
                 
                 if (clients[client_fd].write_pos >= clients[client_fd].write_len && clients[client_fd].write_len > 0) {
                     if (!clients[client_fd].keep_alive) {
@@ -138,31 +146,13 @@ int main(){
                     
                     if(count == -1){
                         if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                            const char *header_end = strstr(clients[client_fd].read_buffer, "\r\n\r\n");
                             
-                            if (header_end != NULL) {
-                                
-                                size_t header_length = (header_end - clients[client_fd].read_buffer) + 4;
-                                
-                                char cl_str[32] = {0};
-                                int has_cl = get_header_value(clients[client_fd].read_buffer, "Content-Length", cl_str, sizeof(cl_str));
-                                
-                                int request_complete = 0;
-                                if (has_cl) {
-                                    size_t content_length = (size_t)atol(cl_str);
                             
-                                    if (clients[client_fd].read_pos >= header_length + content_length) {
-                                        request_complete = 1;
-                                    }
-                                } else {
-                            
-                                    request_complete = 1; 
-                                }
-
-                                if (request_complete) {
-                                    handle_http_request(clients[client_fd].read_buffer, client_fd, epoll_fd);
-                                }
+                            if (strchr(clients[client_fd].read_buffer, '\n') != NULL) {
+                        
+                                handle_client_command(clients[client_fd].read_buffer, client_fd, epoll_fd);
                             }
+                            
                             break;
                         } else {
                             close_client(client_fd);
