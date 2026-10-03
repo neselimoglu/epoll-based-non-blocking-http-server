@@ -52,7 +52,7 @@ void ht_set(const char *key, const char *value) {
     if(new_node == NULL)
         return;
 
-    
+     
     new_node->key = my_strdup(key);
     new_node->value = my_strdup(value);
 

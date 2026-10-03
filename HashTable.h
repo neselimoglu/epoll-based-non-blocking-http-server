@@ -7,8 +7,8 @@ typedef struct Node {
     char *key;
     char *value;
     struct Node *next;
-} Node;
-
+} Node; 
+ 
 unsigned long hash_function(const char *str);
 void ht_init();
 void ht_set(const char *key, const char *value);
