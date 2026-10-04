@@ -23,5 +23,6 @@ char* ht_get(const char *key);
 int ht_delete(const char *key);
 int ht_save(const char *filename);
 int ht_load(const char *filename);
+int ht_increment(const char *key, long delta, long *result);
 
 #endif

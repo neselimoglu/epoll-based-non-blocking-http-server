@@ -245,3 +245,49 @@ int ht_load(const char *filename) {
     fprintf(stderr, "Loading data from dump.rdb...\n");
     return 1;
 }  
+
+
+
+int ht_increment(const char *key, long delta, long *result) {
+    unsigned long index = hash_function(key);
+    Node *current = hash_table[index];
+
+    while (current != NULL) {
+        if (strcmp(current->key, key) == 0) {
+            
+            if (current->timestamp > 0 && time(NULL) > current->timestamp) {
+                ht_delete(key);
+                break; 
+            }
+
+            
+            char *endptr;
+            long val = strtol(current->value, &endptr, 10);
+            
+            
+            if (*endptr != '\0') {
+                return 0;  
+            }
+
+            
+            val += delta;
+            *result = val;
+
+            
+            char new_str[32];
+            snprintf(new_str, sizeof(new_str), "%ld", val);
+            
+            free(current->value); 
+            current->value = strdup(new_str);
+            
+            return 1;
+        }
+        current = current->next;
+    }
+
+    *result = delta;
+    char new_str[32];
+    snprintf(new_str, sizeof(new_str), "%ld", delta);
+    ht_set(key, new_str);
+    return 1;
+}

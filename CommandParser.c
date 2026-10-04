@@ -87,6 +87,30 @@ void handle_client_command(char *buffer, int client_fd, int epoll_fd)
             snprintf(response, sizeof(response), "-ERR Load failed\r\n");
         }
     }
+    else if (strcmp(command, "INCR") == 0 && parsed >= 2)
+    {
+        long new_val;
+        if (ht_increment(key, 1, &new_val))
+        {
+            snprintf(response, sizeof(response), ":%ld\r\n", new_val); // Redis sayısal yanıtları : ile başlar
+        }
+        else
+        {
+            snprintf(response, sizeof(response), "-ERR value is not an integer\r\n");
+        }
+    }
+    else if (strcmp(command, "DECR") == 0 && parsed >= 2)
+    {
+        long new_val;
+        if (ht_increment(key, -1, &new_val))
+        {
+            snprintf(response, sizeof(response), ":%ld\r\n", new_val);
+        }
+        else
+        {
+            snprintf(response, sizeof(response), "-ERR value is not an integer\r\n");
+        }
+    }
     else
     {
         snprintf(response, sizeof(response), "-ERR Unknown Command\r\n");
