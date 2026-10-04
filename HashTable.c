@@ -242,5 +242,6 @@ int ht_load(const char *filename) {
         free(value);
     }
     fclose(file);
+    fprintf(stderr, "Loading data from dump.rdb...\n");
     return 1;
 }  
