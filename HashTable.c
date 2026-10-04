@@ -50,6 +50,7 @@ void ht_set(const char *key, const char *value)
         {
             free(new_node->value);
             new_node->value = my_strdup(value);
+            new_node->timestamp = 0;
             return;
         }
         new_node = new_node->next;
@@ -60,6 +61,7 @@ void ht_set(const char *key, const char *value)
 
     new_node->key = my_strdup(key);
     new_node->value = my_strdup(value);
+    new_node->timestamp = 0;
 
     new_node->next = hash_table[index];
     hash_table[index] = new_node;
@@ -74,6 +76,11 @@ char *ht_get(const char *key)
     {
         if (strcmp(current->key, key) == 0)
         {
+            if (current->timestamp != 0 && time(NULL) > current->timestamp)
+            {
+                ht_delete(key);
+                return NULL;
+            }
             return current->value;
         }
         current = current->next;
@@ -81,6 +88,7 @@ char *ht_get(const char *key)
 
     return NULL;
 }
+
 int ht_delete(const char *key)
 {
     unsigned long index = hash_function(key);
@@ -108,4 +116,55 @@ int ht_delete(const char *key)
         current = current->next;
     }
     return 0;
+}
+    
+int ht_expire(const char *key, int seconds)
+{
+    unsigned long index = hash_function(key);
+    Node *current = hash_table[index];
+
+    while (current != NULL)
+    {
+        if (strcmp(current->key, key) == 0)
+        {
+            current->timestamp = time(NULL) + seconds;
+            return 1;
+        }
+        current = current->next;
+    }
+    return 0;
+}
+
+void ht_sweep_expired()
+{
+    for (int i = 0; i < TABLE_SIZE; i++)
+    {
+        Node *current = hash_table[i];
+        Node *prev = NULL;
+
+        while (current != NULL)
+        {
+            if (current->timestamp != 0 && time(NULL) > current->timestamp)
+            {
+                if (prev == NULL)
+                {
+                    hash_table[i] = current->next;
+                }
+                else
+                {
+                    prev->next = current->next;
+                }
+                free(current->key);
+                free(current->value);
+                Node *temp = current;
+                current = current->next;
+                free(temp);
+            }
+            else
+            {
+                prev = current;
+                current = current->next;
+            }
+        }
+    }
 }

@@ -71,7 +71,7 @@ int main(){
                 }
             }
         }
-
+        ht_sweep_expired(); 
         for(int i = 0; i < n; i++){
             uint32_t current_events = events[i].events;
             int active_fd = events[i].data.fd;

@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/epoll.h>
+#include <stdlib.h>
+
 #include "CommandParser.h"
 #include "HashTable.h"
 #include "ClientsState.h"
@@ -36,11 +38,31 @@ void handle_client_command(char *buffer, int client_fd, int epoll_fd)
         int deleted = ht_delete(key);
         if (deleted)
         {
-            snprintf(response, sizeof(response), ":1\r\n"); 
+            snprintf(response, sizeof(response), ":1\r\n");
         }
         else
         {
             snprintf(response, sizeof(response), ":0\r\n");
+        }
+    }
+    else if (strcmp(command, "EXPIRE") == 0 && parsed >= 3)
+    {
+        int seconds = atoi(value); 
+        if (seconds <= 0)
+        {
+            snprintf(response, sizeof(response), "-ERR Invalid time\r\n");
+        }
+        else
+        {
+            int success = ht_expire(key, seconds);
+            if (success)
+            {
+                snprintf(response, sizeof(response), ":1\r\n"); 
+            }
+            else
+            {
+                snprintf(response, sizeof(response), ":0\r\n"); 
+            }
         }
     }
     else
