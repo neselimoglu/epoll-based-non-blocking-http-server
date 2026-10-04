@@ -47,7 +47,7 @@ void handle_client_command(char *buffer, int client_fd, int epoll_fd)
     }
     else if (strcmp(command, "EXPIRE") == 0 && parsed >= 3)
     {
-        int seconds = atoi(value); 
+        int seconds = atoi(value);
         if (seconds <= 0)
         {
             snprintf(response, sizeof(response), "-ERR Invalid time\r\n");
@@ -57,12 +57,34 @@ void handle_client_command(char *buffer, int client_fd, int epoll_fd)
             int success = ht_expire(key, seconds);
             if (success)
             {
-                snprintf(response, sizeof(response), ":1\r\n"); 
+                snprintf(response, sizeof(response), ":1\r\n");
             }
             else
             {
-                snprintf(response, sizeof(response), ":0\r\n"); 
+                snprintf(response, sizeof(response), ":0\r\n");
             }
+        }
+    }
+    else if (strcmp(command, "SAVE") == 0)
+    {
+        if (ht_save("dump.rdb"))
+        {
+            snprintf(response, sizeof(response), "+OK Saved to disk\r\n");
+        }
+        else
+        {
+            snprintf(response, sizeof(response), "-ERR Save failed\r\n");
+        }
+    }
+    else if (strcmp(command, "LOAD") == 0)
+    {
+        if (ht_load("dump.rdb"))
+        {
+            snprintf(response, sizeof(response), "+OK Loaded from disk\r\n");
+        }
+        else
+        {
+            snprintf(response, sizeof(response), "-ERR Load failed\r\n");
         }
     }
     else

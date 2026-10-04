@@ -21,5 +21,7 @@ void ht_sweep_expired();
 void ht_set(const char *key, const char *value);
 char* ht_get(const char *key);
 int ht_delete(const char *key);
+int ht_save(const char *filename);
+int ht_load(const char *filename);
 
 #endif

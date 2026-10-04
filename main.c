@@ -29,6 +29,7 @@ int main(){
 
     init_all_clients();
     ht_init(); 
+    ht_load("dump.rdb");
 
 
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);

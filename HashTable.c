@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include "HashTable.h"
 
 Node *hash_table[TABLE_SIZE];
@@ -168,3 +169,78 @@ void ht_sweep_expired()
         }
     }
 }
+
+int ht_save(const char *filename) {
+    FILE *file = fopen(filename, "wb"); 
+    if (!file) return 0;
+
+    for (int i = 0; i < TABLE_SIZE; i++) {
+        Node *current = hash_table[i];
+        while (current != NULL) {
+            
+            if (current->timestamp == 0 || current->timestamp > time(NULL)) {
+                size_t k_len = strlen(current->key);
+                size_t v_len = strlen(current->value);
+
+            
+                fwrite(&k_len, sizeof(size_t), 1, file);
+                fwrite(current->key, 1, k_len, file);
+
+                fwrite(&v_len, sizeof(size_t), 1, file);
+                fwrite(current->value, 1, v_len, file);
+
+                fwrite(&current->timestamp, sizeof(time_t), 1, file);
+            }
+            current = current->next;
+        }
+    }
+    fclose(file);
+    return 1;
+}
+
+int ht_load(const char *filename) {
+    FILE *file = fopen(filename, "rb"); 
+    if (!file) return 0; 
+
+    size_t k_len, v_len;
+    time_t timestamp;
+
+    
+    while (fread(&k_len, sizeof(size_t), 1, file) == 1) {
+        char *key = malloc(k_len + 1);
+        if (fread(key, 1, k_len, file) != k_len) {
+            break;
+        }
+        key[k_len] = '\0';
+
+        if (fread(&v_len, sizeof(size_t), 1, file) != 1) {
+            break;
+        }
+        char *value = malloc(v_len + 1);
+        if (fread(value, 1, v_len, file) != v_len) {
+            break;
+        }
+        value[v_len] = '\0';
+
+        if (fread(&timestamp, sizeof(time_t), 1, file) != 1) {
+            break;
+        }
+    
+        ht_set(key, value);
+
+        unsigned long index = hash_function(key);
+        Node *current = hash_table[index];
+        while (current != NULL) {
+            if (strcmp(current->key, key) == 0) {
+                current->timestamp = timestamp;
+                break;
+            }
+            current = current->next;
+        }
+
+        free(key);
+        free(value);
+    }
+    fclose(file);
+    return 1;
+}  
