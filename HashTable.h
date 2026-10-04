@@ -13,5 +13,6 @@ unsigned long hash_function(const char *str);
 void ht_init();
 void ht_set(const char *key, const char *value);
 char* ht_get(const char *key);
+int ht_delete(const char *key);
 
 #endif

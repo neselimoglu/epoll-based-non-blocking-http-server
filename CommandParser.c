@@ -5,7 +5,8 @@
 #include "HashTable.h"
 #include "ClientsState.h"
 
-void handle_client_command(char *buffer, int client_fd, int epoll_fd) {
+void handle_client_command(char *buffer, int client_fd, int epoll_fd)
+{
     char command[16] = {0};
     char key[64] = {0};
     char value[1024] = {0};
@@ -13,23 +14,40 @@ void handle_client_command(char *buffer, int client_fd, int epoll_fd) {
 
     int parsed = sscanf(buffer, "%s %s %[^\r\n]", command, key, value);
 
-    if (strcmp(command, "SET") == 0 && parsed >= 3) {
+    if (strcmp(command, "SET") == 0 && parsed >= 3)
+    {
         ht_set(key, value);
         snprintf(response, sizeof(response), "+OK\r\n");
-    } 
-    else if (strcmp(command, "GET") == 0 && parsed >= 2) {
+    }
+    else if (strcmp(command, "GET") == 0 && parsed >= 2)
+    {
         char *res = ht_get(key);
-        if (res != NULL) {
+        if (res != NULL)
+        {
             snprintf(response, sizeof(response), "%s\r\n", res);
-        } else {
-            snprintf(response, sizeof(response), "(nil)\r\n"); 
+        }
+        else
+        {
+            snprintf(response, sizeof(response), "(nil)\r\n");
         }
     }
-    else {
+    else if (strcmp(command, "DEL") == 0 && parsed >= 2)
+    {
+        int deleted = ht_delete(key);
+        if (deleted)
+        {
+            snprintf(response, sizeof(response), ":1\r\n"); 
+        }
+        else
+        {
+            snprintf(response, sizeof(response), ":0\r\n");
+        }
+    }
+    else
+    {
         snprintf(response, sizeof(response), "-ERR Unknown Command\r\n");
     }
 
-    
     size_t res_len = strlen(response);
     strncpy(clients[client_fd].write_buffer, response, res_len);
     clients[client_fd].write_len = res_len;
