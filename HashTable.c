@@ -8,10 +8,25 @@ Node **hash_table = NULL;
 unsigned long table_capacity = INITIAL_CAPACITY;
 unsigned long item_count = 0;
 
+void free_value(ValueType type, void *value) {
+    if (type == VAL_STRING) {
+        free(value);
+    } else if (type == VAL_LIST) {
+        List *list = (List *)value;
+        ListNode *current = list->head;
+        while (current != NULL) {
+            ListNode *next = current->next;
+            free(current->value);
+            free(current);
+            current = next;
+        }
+        free(list);
+    }
+}
+
 void ht_init() {
     hash_table = calloc(table_capacity, sizeof(Node*));
 }
-
 
 unsigned long hash_function(const char *str, unsigned long capacity) {
     unsigned long hash = 5381;
@@ -30,10 +45,7 @@ void ht_resize() {
         Node *current = hash_table[i];
         while (current != NULL) {
             Node *next_node = current->next;
-            
-            
             unsigned long new_index = hash_function(current->key, new_capacity);
-            
             
             current->next = new_table[new_index];
             new_table[new_index] = current;
@@ -56,7 +68,8 @@ void ht_set(const char *key, const char *value) {
 
     while (current != NULL) {
         if (strcmp(current->key, key) == 0) {
-            free(current->value);
+            free_value(current->type, current->value); 
+            current->type = VAL_STRING;
             current->value = strdup(value);
             current->timestamp = 0;
             return;
@@ -66,6 +79,7 @@ void ht_set(const char *key, const char *value) {
 
     Node *new_node = malloc(sizeof(Node));
     new_node->key = strdup(key);
+    new_node->type = VAL_STRING;
     new_node->value = strdup(value);
     new_node->timestamp = 0;
     new_node->next = hash_table[index];
@@ -85,13 +99,13 @@ char *ht_get(const char *key) {
                 ht_delete(key);
                 return NULL;
             }
-            return current->value;
+            if (current->type != VAL_STRING) return NULL;
+            return (char*)current->value;
         }
         current = current->next;
     }
     return NULL;
 }
-
 
 int ht_delete(const char *key) {
     unsigned long index = hash_function(key, table_capacity);
@@ -104,7 +118,7 @@ int ht_delete(const char *key) {
             else prev->next = current->next;
             
             free(current->key);
-            free(current->value);
+            free_value(current->type, current->value);
             free(current);
             item_count--; 
             return 1;
@@ -125,9 +139,10 @@ int ht_increment(const char *key, long delta, long *result) {
                 ht_delete(key);
                 break;
             }
+            if (current->type != VAL_STRING) return 0; 
 
             char *endptr;
-            long val = strtol(current->value, &endptr, 10);
+            long val = strtol((char*)current->value, &endptr, 10);
             if (*endptr != '\0') return 0;
 
             val += delta;
@@ -163,7 +178,6 @@ int ht_expire(const char *key, int seconds) {
     return 0;
 }
 
-
 void ht_sweep_expired() {
     if (item_count == 0) return;
 
@@ -174,14 +188,12 @@ void ht_sweep_expired() {
         int expired_found = 0;
         int keys_sampled = 0;
 
-        
         for (int i = 0; i < 20; i++) {
             unsigned long random_index = rand() % table_capacity;
             Node *current = hash_table[random_index];
             
             while (current != NULL) {
                 Node *next_node = current->next; 
-                
                 
                 if (current->timestamp > 0) {
                     keys_sampled++;
@@ -201,6 +213,51 @@ void ht_sweep_expired() {
     }
 }
 
+int ht_lpush(const char *key, const char *val_str) {
+    if ((float)item_count / table_capacity >= 0.75) ht_resize();
+
+    unsigned long index = hash_function(key, table_capacity);
+    Node *current = hash_table[index];
+
+    while (current != NULL) {
+        if (strcmp(current->key, key) == 0) {
+            if (current->type != VAL_LIST) return -1; 
+
+            List *list = (List *)current->value;
+            ListNode *lnode = malloc(sizeof(ListNode));
+            lnode->value = strdup(val_str);
+            lnode->prev = NULL;
+            lnode->next = list->head;
+            
+            if (list->head) list->head->prev = lnode;
+            list->head = lnode;
+            if (!list->tail) list->tail = lnode; 
+            
+            list->length++;
+            return list->length; 
+        }
+        current = current->next;
+    }
+
+    List *list = malloc(sizeof(List));
+    ListNode *lnode = malloc(sizeof(ListNode));
+    lnode->value = strdup(val_str);
+    lnode->next = lnode->prev = NULL;
+    list->head = list->tail = lnode;
+    list->length = 1;
+
+    Node *new_node = malloc(sizeof(Node));
+    new_node->key = strdup(key);
+    new_node->type = VAL_LIST;
+    new_node->value = list; 
+    new_node->timestamp = 0;
+    new_node->next = hash_table[index];
+    hash_table[index] = new_node;
+    
+    item_count++;
+    return 1;
+}
+
 int ht_save(const char *filename) {
     FILE *file = fopen(filename, "wb");
     if (!file) return 0;
@@ -210,13 +267,31 @@ int ht_save(const char *filename) {
         while (current != NULL) {
             if (current->timestamp == 0 || current->timestamp > time(NULL)) {
                 size_t k_len = strlen(current->key);
-                size_t v_len = strlen(current->value);
-
+                
+                
                 fwrite(&k_len, sizeof(size_t), 1, file);
                 fwrite(current->key, 1, k_len, file);
-                fwrite(&v_len, sizeof(size_t), 1, file);
-                fwrite(current->value, 1, v_len, file);
+                
+                
+                fwrite(&current->type, sizeof(ValueType), 1, file);
                 fwrite(&current->timestamp, sizeof(time_t), 1, file);
+
+                if (current->type == VAL_STRING) {
+                    size_t v_len = strlen((char*)current->value);
+                    fwrite(&v_len, sizeof(size_t), 1, file);
+                    fwrite(current->value, 1, v_len, file);
+                } else if (current->type == VAL_LIST) {
+                    List *list = (List*)current->value;
+                    fwrite(&list->length, sizeof(unsigned long), 1, file); 
+                    
+                    ListNode *lnode = list->head;
+                    while (lnode != NULL) {
+                        size_t v_len = strlen(lnode->value);
+                        fwrite(&v_len, sizeof(size_t), 1, file);
+                        fwrite(lnode->value, 1, v_len, file);
+                        lnode = lnode->next;
+                    }
+                }
             }
             current = current->next;
         }
@@ -229,23 +304,48 @@ void ht_load(const char *filename) {
     FILE *file = fopen(filename, "rb");
     if (!file) return;
 
-    size_t k_len, v_len;
-    time_t timestamp;
-
+    size_t k_len;
     while (fread(&k_len, sizeof(size_t), 1, file) == 1) {
         char *key = malloc(k_len + 1);
         fread(key, 1, k_len, file);
         key[k_len] = '\0';
 
-        fread(&v_len, sizeof(size_t), 1, file);
-        char *value = malloc(v_len + 1);
-        fread(value, 1, v_len, file);
-        value[v_len] = '\0';
-
+        ValueType type;
+        time_t timestamp;
+        fread(&type, sizeof(ValueType), 1, file);
         fread(&timestamp, sizeof(time_t), 1, file);
 
-        ht_set(key, value);
+        if (type == VAL_STRING) {
+            size_t v_len;
+            fread(&v_len, sizeof(size_t), 1, file);
+            char *value = malloc(v_len + 1);
+            fread(value, 1, v_len, file);
+            value[v_len] = '\0';
+            
+            ht_set(key, value);
+            free(value);
+        } else if (type == VAL_LIST) {
+            unsigned long list_length;
+            fread(&list_length, sizeof(unsigned long), 1, file);
+            
+            
+            char **temp_arr = malloc(list_length * sizeof(char*));
+            for (unsigned long i = 0; i < list_length; i++) {
+                size_t v_len;
+                fread(&v_len, sizeof(size_t), 1, file);
+                temp_arr[i] = malloc(v_len + 1);
+                fread(temp_arr[i], 1, v_len, file);
+                temp_arr[i][v_len] = '\0';
+            }
+            
+            for (long i = list_length - 1; i >= 0; i--) {
+                ht_lpush(key, temp_arr[i]);
+                free(temp_arr[i]);
+            }
+            free(temp_arr);
+        }
 
+        
         unsigned long index = hash_function(key, table_capacity);
         Node *current = hash_table[index];
         while (current != NULL) {
@@ -255,9 +355,91 @@ void ht_load(const char *filename) {
             }
             current = current->next;
         }
-
         free(key);
-        free(value);
     }
     fclose(file);
+}
+char *ht_lrange(const char *key, int start, int end) {
+    unsigned long index = hash_function(key, table_capacity);
+    Node *current = hash_table[index];
+
+    while (current != NULL) {
+        if (strcmp(current->key, key) == 0) {
+            if (current->type != VAL_LIST) return strdup("-WRONGTYPE Operation against a key holding the wrong kind of value\r\n");
+
+            List *list = (List *)current->value;
+            if (list->length == 0) return strdup("*0\r\n");
+
+            int list_len = list->length;
+            
+            if (start < 0) start = list_len + start;
+            if (end < 0) end = list_len + end;
+            if (start < 0) start = 0;
+            if (end >= list_len) end = list_len - 1;
+            if (start > end || start >= list_len) return strdup("*0\r\n");
+
+            int count = end - start + 1;
+
+            char *result = malloc(4096); 
+            result[0] = '\0';
+            char temp[64];
+            snprintf(temp, sizeof(temp), "*%d\r\n", count);
+            strcat(result, temp);
+
+            ListNode *lnode = list->head;
+            int i = 0;
+            while (lnode != NULL && i <= end) {
+                if (i >= start) {
+                    snprintf(temp, sizeof(temp), "$%zu\r\n", strlen(lnode->value));
+                    strcat(result, temp);
+                    strcat(result, lnode->value);
+                    strcat(result, "\r\n");
+                }
+                lnode = lnode->next;
+                i++;
+            }
+            return result; 
+        }
+        current = current->next;
+    }
+    return strdup("*0\r\n"); 
+}
+
+char *ht_rpop(const char *key) {
+    unsigned long index = hash_function(key, table_capacity);
+    Node *current = hash_table[index];
+
+    while (current != NULL) {
+        if (strcmp(current->key, key) == 0) {
+            if (current->type != VAL_LIST) return strdup("-WRONGTYPE Operation against a key holding the wrong kind of value\r\n");
+
+            List *list = (List *)current->value;
+            if (list->length == 0) return strdup("$-1\r\n"); 
+
+            ListNode *tail = list->tail;
+            char *val = strdup(tail->value);
+
+        
+            if (list->head == tail) {
+                list->head = list->tail = NULL;
+            } else {
+                list->tail = tail->prev;
+                list->tail->next = NULL;
+            }
+            free(tail->value);
+            free(tail);
+            list->length--;
+
+            
+            if (list->length == 0) ht_delete(key);
+
+            
+            char *result = malloc(strlen(val) + 32);
+            snprintf(result, strlen(val) + 32, "$%zu\r\n%s\r\n", strlen(val), val);
+            free(val);
+            return result;
+        }
+        current = current->next;
+    }
+    return strdup("$-1\r\n"); 
 }

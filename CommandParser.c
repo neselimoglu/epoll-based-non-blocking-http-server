@@ -7,56 +7,36 @@
 #include "ClientsState.h"
 
 void handle_client_command(char *buffer, int client_fd, int epoll_fd) {
-    char command[32] = {0};
-    char key[128] = {0};
-    char value[1024] = {0};
-    char response[2048] = {0};
+    char args[4][1024] = {0}; 
+    char response[4096] = {0};
     int parsed_args = 0;
 
+    
     if (buffer[0] == '*') {
         int num_args = 0;
         char *ptr = buffer;
 
-        if (sscanf(ptr, "*%d\r\n", &num_args) != 1);
-        ptr = strstr(ptr, "\r\n");
-        if (!ptr);
-        ptr += 2;
+        if (sscanf(ptr, "*%d\r\n", &num_args) != 1) return;
+        ptr = strstr(ptr, "\r\n"); if (!ptr) return; ptr += 2;
 
-        int len;
-        if (sscanf(ptr, "$%d\r\n", &len) != 1);
-        ptr = strstr(ptr, "\r\n");
-        if (!ptr);
-        ptr += 2;
-        strncpy(command, ptr, len);
-        command[len] = '\0';
-        ptr = strstr(ptr, "\r\n");
-        if (!ptr);
-        ptr += 2;
-        parsed_args = 1;
-
-        if (num_args >= 2) {
-            if (sscanf(ptr, "$%d\r\n", &len) != 1);
-            ptr = strstr(ptr, "\r\n");
-            if (!ptr);
-            ptr += 2;
-            strncpy(key, ptr, len);
-            key[len] = '\0';
-            ptr = strstr(ptr, "\r\n");
-            if (!ptr) ;
-            ptr += 2;
-            parsed_args = 2;
+        for (int i = 0; i < num_args && i < 4; i++) {
+            int len;
+            if (sscanf(ptr, "$%d\r\n", &len) != 1) return;
+            ptr = strstr(ptr, "\r\n"); if (!ptr) return; ptr += 2;
+            
+            strncpy(args[i], ptr, len);
+            args[i][len] = '\0';
+            
+            ptr = strstr(ptr, "\r\n"); if (!ptr) return; ptr += 2;
+            parsed_args++;
         }
-
-        if (num_args >= 3) {
-            if (sscanf(ptr, "$%d\r\n", &len) != 1);
-            ptr = strstr(ptr, "\r\n");
-            if (!ptr);
-            ptr += 2;
-            strncpy(value, ptr, len);
-            value[len] = '\0';
-            parsed_args = 3;
-        }
+    } else {
+        return; 
     }
+
+    char *command = args[0];
+    char *key = args[1];
+    char *value = args[2];
 
     if (strcmp(command, "PING") == 0) {
         snprintf(response, sizeof(response), "+PONG\r\n");
@@ -77,27 +57,32 @@ void handle_client_command(char *buffer, int client_fd, int epoll_fd) {
         int deleted = ht_delete(key);
         snprintf(response, sizeof(response), ":%d\r\n", deleted); 
     }
+    else if (strcmp(command, "LPUSH") == 0 && parsed_args >= 3) {
+        int len = ht_lpush(key, value);
+        if (len == -1) snprintf(response, sizeof(response), "-WRONGTYPE Operation against a key holding the wrong kind of value\r\n");
+        else snprintf(response, sizeof(response), ":%d\r\n", len);
+    }
+    else if (strcmp(command, "LRANGE") == 0 && parsed_args >= 4) {
+        int start = atoi(args[2]);
+        int end = atoi(args[3]);
+        char *res = ht_lrange(key, start, end);
+        snprintf(response, sizeof(response), "%s", res);
+        free(res); 
+    }
+    else if (strcmp(command, "RPOP") == 0 && parsed_args >= 2) {
+        char *res = ht_rpop(key);
+        snprintf(response, sizeof(response), "%s", res);
+        free(res);
+    }
     else if (strcmp(command, "INCR") == 0 && parsed_args >= 2) {
         long new_val;
-        if (ht_increment(key, 1, &new_val)) {
-            snprintf(response, sizeof(response), ":%ld\r\n", new_val);
-        } else {
-            snprintf(response, sizeof(response), "-ERR value is not an integer\r\n");
-        }
-    }
-    else if (strcmp(command, "DECR") == 0 && parsed_args >= 2) {
-        long new_val;
-        if (ht_increment(key, -1, &new_val)) {
-            snprintf(response, sizeof(response), ":%ld\r\n", new_val);
-        } else {
-            snprintf(response, sizeof(response), "-ERR value is not an integer\r\n");
-        }
+        if (ht_increment(key, 1, &new_val)) snprintf(response, sizeof(response), ":%ld\r\n", new_val);
+        else snprintf(response, sizeof(response), "-ERR value is not an integer\r\n");
     }
     else if (strcmp(command, "EXPIRE") == 0 && parsed_args >= 3) {
         int seconds = atoi(value);
-        if (seconds <= 0) {
-            snprintf(response, sizeof(response), "-ERR Invalid time\r\n");
-        } else {
+        if (seconds <= 0) snprintf(response, sizeof(response), "-ERR Invalid time\r\n");
+        else {
             if (ht_expire(key, seconds)) snprintf(response, sizeof(response), ":1\r\n");
             else snprintf(response, sizeof(response), ":0\r\n");
         }
