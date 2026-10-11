@@ -104,6 +104,39 @@ void handle_client_command(char *buffer, int client_fd, int epoll_fd) {
         } else {
             snprintf(response, sizeof(response), "-ERR fork failed\r\n");
         }
+    }else if (strcmp(command, "SUBSCRIBE") == 0 && parsed_args >= 2) {
+        
+        strncpy(clients[client_fd].subscribed_channel, key, sizeof(clients[client_fd].subscribed_channel) - 1);
+        
+        
+        snprintf(response, sizeof(response), "*3\r\n$9\r\nsubscribe\r\n$%zu\r\n%s\r\n:1\r\n", strlen(key), key);
+    }
+    else if (strcmp(command, "PUBLISH") == 0 && parsed_args >= 3) {
+        int receivers = 0;
+        char pub_msg[2048];
+        
+        // Abonelere gidecek mesajı RESP formatında hazırla
+        snprintf(pub_msg, sizeof(pub_msg), "*3\r\n$7\r\nmessage\r\n$%zu\r\n%s\r\n$%zu\r\n%s\r\n", strlen(key), key, strlen(value), value);
+        size_t pub_len = strlen(pub_msg);
+
+    
+        for (int i = 0; i < 1024; i++) {
+            if (clients[i].fd != -1 && strcmp(clients[i].subscribed_channel, key) == 0) {
+                
+                strcat(clients[i].write_buffer, pub_msg);
+                clients[i].write_len += pub_len;
+                
+            
+                struct epoll_event ev;
+                ev.events = EPOLLIN | EPOLLOUT | EPOLLET | EPOLLRDHUP;
+                ev.data.fd = clients[i].fd;
+                epoll_ctl(epoll_fd, EPOLL_CTL_MOD, clients[i].fd, &ev);
+                
+                receivers++;
+            }
+        }
+        
+        snprintf(response, sizeof(response), ":%d\r\n", receivers);
     }
     else {
         snprintf(response, sizeof(response), "-ERR Unknown Command\r\n");

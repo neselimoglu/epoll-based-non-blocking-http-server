@@ -1,10 +1,9 @@
 #include "stddef.h"
 #include <time.h>
 #include <unistd.h>
-
+#include <string.h>
 
 #include "ClientsState.h"
-#include <string.h>
 
 ClientsState clients[MAX_CLIENTS];
 
@@ -23,8 +22,9 @@ void init_clients_state(int fd) {
     memset(clients[fd].write_buffer, 0, BUFFER_SIZE);
 
     clients[fd].last_active = time(NULL);
-}
 
+    clients[fd].subscribed_channel[0] = '\0';
+}
 
 void init_all_clients() {
     for(int i = 0; i < MAX_CLIENTS; i++) {
@@ -32,10 +32,11 @@ void init_all_clients() {
     }
 }
 
-
 void close_client(int fd) {
     if(fd >= 0 && fd < MAX_CLIENTS && clients[fd].fd != -1) {
         close(fd);
         clients[fd].fd = -1;
+        
+        clients[fd].subscribed_channel[0] = '\0';
     }
 }

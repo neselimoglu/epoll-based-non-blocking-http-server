@@ -17,6 +17,7 @@ typedef struct {
     size_t write_len;
 
     time_t last_active;
+    char subscribed_channel[128];
 } ClientsState;
 
 
