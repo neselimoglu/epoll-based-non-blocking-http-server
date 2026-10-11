@@ -1,7 +1,7 @@
 #ifndef HASH_TABLE_H
 #define HASH_TABLE_H
 
-#define TABLE_SIZE 10000 
+#define INITIAL_CAPACITY 10000 
 
 #include <time.h>
 
