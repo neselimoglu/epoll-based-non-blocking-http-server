@@ -8,4 +8,4 @@ all:
 	$(CC) $(CFLAGS) $(SRCS) -o $(TARGET)
 
 clean:
-	rm -f $(TARGET) dump.rdb
+	rm -f $(TARGET) dump.rdb PUBLISH SUBSCRIBE

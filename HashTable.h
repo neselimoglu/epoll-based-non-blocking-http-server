@@ -31,7 +31,7 @@ typedef struct Node {
 
 int ht_lpush(const char *key, const char *value);
  
-unsigned long hash_function(const char *str);
+unsigned long hash_function(const char *str, unsigned long capacity);
 void ht_init();
 
 int ht_expire(const char *key, int seconds);
@@ -41,7 +41,7 @@ void ht_set(const char *key, const char *value);
 char* ht_get(const char *key);
 int ht_delete(const char *key);
 int ht_save(const char *filename);
-int ht_load(const char *filename);
+void ht_load(const char *filename);
 int ht_increment(const char *key, long delta, long *result);
 
 char *ht_lrange(const char *key, int start, int end);

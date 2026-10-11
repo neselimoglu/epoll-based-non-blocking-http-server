@@ -1,5 +1,6 @@
 # Epoll-Based Non-Blocking Redis Clone
 
+#### I will update this page. It is not working like this now.
 > ⚠️ **Note:** This project evolved from a simple HTTP server into a high-performance, in-memory Key-Value store (Redis clone). It is written entirely in C from scratch, emphasizing robust system architecture, manual memory management, and high concurrency.
 
 This project is a high-performance, lightweight database engine. It is engineered to handle thousands of concurrent client connections efficiently by utilizing Linux's `epoll` I/O multiplexing mechanism alongside non-blocking sockets. It supports the **RESP (REdis Serialization Protocol)**, meaning standard tools like `redis-cli` and `redis-benchmark` can connect to it natively.

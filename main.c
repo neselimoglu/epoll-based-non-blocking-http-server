@@ -28,7 +28,7 @@ int main(){
     signal(SIGPIPE, SIG_IGN);
     srand(time(NULL));
     signal(SIGCHLD, SIG_IGN);
-    
+
     init_all_clients();
     ht_init(); 
     ht_load("dump.rdb");
@@ -60,7 +60,7 @@ int main(){
 
     struct epoll_event events[MAX_EVENTS];
 
-    printf("Database Started (Port 8080). Connect with Telnet\n");
+    printf("Database Started (Port 8080).\n");
 
     while(1){
         int n = epoll_wait(epoll_fd, events, MAX_EVENTS, 1000);
