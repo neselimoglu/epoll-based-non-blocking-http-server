@@ -4,17 +4,15 @@
 #include <time.h>
 #include "HashTable.h"
 
-// YENİ DİNAMİK YAPILAR
 Node **hash_table = NULL;
 unsigned long table_capacity = INITIAL_CAPACITY;
 unsigned long item_count = 0;
 
-// Sunucu başlarken tabloyu tahsis et
 void ht_init() {
     hash_table = calloc(table_capacity, sizeof(Node*));
 }
 
-// Kapasiteye göre Hash hesaplama
+
 unsigned long hash_function(const char *str, unsigned long capacity) {
     unsigned long hash = 5381;
     int c;
@@ -24,7 +22,6 @@ unsigned long hash_function(const char *str, unsigned long capacity) {
     return hash % capacity;
 }
 
-// YENİ: Tabloyu %75 dolduğunda 2 katına çıkarma motoru
 void ht_resize() {
     unsigned long new_capacity = table_capacity * 2;
     Node **new_table = calloc(new_capacity, sizeof(Node*));
@@ -34,24 +31,22 @@ void ht_resize() {
         while (current != NULL) {
             Node *next_node = current->next;
             
-            // Elemanın yeni tablodaki indeksini hesapla
+            
             unsigned long new_index = hash_function(current->key, new_capacity);
             
-            // Yeni tabloya yerleştir
+            
             current->next = new_table[new_index];
             new_table[new_index] = current;
             
             current = next_node;
         }
     }
-    free(hash_table); // Eski küçük tabloyu RAM'den sil
+    free(hash_table); 
     hash_table = new_table;
     table_capacity = new_capacity;
 }
 
-// Veri Ekleme / Güncelleme
 void ht_set(const char *key, const char *value) {
-    // Doluluk oranı (Load Factor) %75'i geçtiyse tabloyu büyüt
     if ((float)item_count / table_capacity >= 0.75) {
         ht_resize();
     }
@@ -76,10 +71,10 @@ void ht_set(const char *key, const char *value) {
     new_node->next = hash_table[index];
     hash_table[index] = new_node;
     
-    item_count++; // Yeni eleman eklendiğinde sayacı artır
+    item_count++; 
 }
 
-// Veri Okuma
+
 char *ht_get(const char *key) {
     unsigned long index = hash_function(key, table_capacity);
     Node *current = hash_table[index];
@@ -97,7 +92,7 @@ char *ht_get(const char *key) {
     return NULL;
 }
 
-// Veri Silme
+
 int ht_delete(const char *key) {
     unsigned long index = hash_function(key, table_capacity);
     Node *current = hash_table[index];
@@ -111,7 +106,7 @@ int ht_delete(const char *key) {
             free(current->key);
             free(current->value);
             free(current);
-            item_count--; // Silinince sayacı azalt
+            item_count--; 
             return 1;
         }
         prev = current;
@@ -120,7 +115,6 @@ int ht_delete(const char *key) {
     return 0;
 }
 
-// Matematiksel Operasyon (INCR/DECR)
 int ht_increment(const char *key, long delta, long *result) {
     unsigned long index = hash_function(key, table_capacity);
     Node *current = hash_table[index];
@@ -155,7 +149,6 @@ int ht_increment(const char *key, long delta, long *result) {
     return 1;
 }
 
-// Süre Atama (EXPIRE)
 int ht_expire(const char *key, int seconds) {
     unsigned long index = hash_function(key, table_capacity);
     Node *current = hash_table[index];
@@ -170,22 +163,44 @@ int ht_expire(const char *key, int seconds) {
     return 0;
 }
 
-// Çöp Toplayıcı (Sweep)
+
 void ht_sweep_expired() {
+    if (item_count == 0) return;
+
     time_t now = time(NULL);
-    for (unsigned long i = 0; i < table_capacity; i++) {
-        Node *current = hash_table[i];
-        while (current != NULL) {
-            Node *next_node = current->next;
-            if (current->timestamp > 0 && now > current->timestamp) {
-                ht_delete(current->key);
+    int max_cycles = 10; 
+
+    while (max_cycles > 0) {
+        int expired_found = 0;
+        int keys_sampled = 0;
+
+        
+        for (int i = 0; i < 20; i++) {
+            unsigned long random_index = rand() % table_capacity;
+            Node *current = hash_table[random_index];
+            
+            while (current != NULL) {
+                Node *next_node = current->next; 
+                
+                
+                if (current->timestamp > 0) {
+                    keys_sampled++;
+                    if (now > current->timestamp) {
+                        ht_delete(current->key); 
+                        expired_found++;
+                    }
+                }
+                current = next_node;
             }
-            current = next_node;
         }
+
+        if (keys_sampled == 0 || (float)expired_found / keys_sampled < 0.25) {
+            break; 
+        }
+        max_cycles--;
     }
 }
 
-// Diske Kaydet
 int ht_save(const char *filename) {
     FILE *file = fopen(filename, "wb");
     if (!file) return 0;
@@ -210,7 +225,6 @@ int ht_save(const char *filename) {
     return 1;
 }
 
-// Diskten Yükle
 void ht_load(const char *filename) {
     FILE *file = fopen(filename, "rb");
     if (!file) return;

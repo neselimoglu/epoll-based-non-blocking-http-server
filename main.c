@@ -26,6 +26,7 @@ void set_nonblocking(int sockfd){
 
 int main(){
     signal(SIGPIPE, SIG_IGN);
+    srand(time(NULL));
 
     init_all_clients();
     ht_init(); 
