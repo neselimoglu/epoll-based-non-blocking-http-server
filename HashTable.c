@@ -258,8 +258,12 @@ int ht_lpush(const char *key, const char *val_str) {
     return 1;
 }
 
+
 int ht_save(const char *filename) {
-    FILE *file = fopen(filename, "wb");
+    char temp_file[256];
+    snprintf(temp_file, sizeof(temp_file), "temp_%s", filename);
+    
+    FILE *file = fopen(temp_file, "wb");
     if (!file) return 0;
 
     for (unsigned long i = 0; i < table_capacity; i++) {
@@ -267,11 +271,8 @@ int ht_save(const char *filename) {
         while (current != NULL) {
             if (current->timestamp == 0 || current->timestamp > time(NULL)) {
                 size_t k_len = strlen(current->key);
-                
-                
                 fwrite(&k_len, sizeof(size_t), 1, file);
                 fwrite(current->key, 1, k_len, file);
-                
                 
                 fwrite(&current->type, sizeof(ValueType), 1, file);
                 fwrite(&current->timestamp, sizeof(time_t), 1, file);
@@ -282,8 +283,7 @@ int ht_save(const char *filename) {
                     fwrite(current->value, 1, v_len, file);
                 } else if (current->type == VAL_LIST) {
                     List *list = (List*)current->value;
-                    fwrite(&list->length, sizeof(unsigned long), 1, file); 
-                    
+                    fwrite(&list->length, sizeof(unsigned long), 1, file);
                     ListNode *lnode = list->head;
                     while (lnode != NULL) {
                         size_t v_len = strlen(lnode->value);
@@ -297,6 +297,8 @@ int ht_save(const char *filename) {
         }
     }
     fclose(file);
+    
+    rename(temp_file, filename);
     return 1;
 }
 

@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <sys/epoll.h>
+#include <unistd.h>
 #include "CommandParser.h"
 #include "HashTable.h"
 #include "ClientsState.h"
@@ -90,6 +91,19 @@ void handle_client_command(char *buffer, int client_fd, int epoll_fd) {
     else if (strcmp(command, "SAVE") == 0) {
         if (ht_save("dump.rdb")) snprintf(response, sizeof(response), "+OK\r\n");
         else snprintf(response, sizeof(response), "-ERR Save failed\r\n");
+    }else if (strcmp(command, "BGSAVE") == 0) {
+        pid_t pid = fork(); 
+        
+        if (pid == 0) {
+        
+            ht_save("dump.rdb");
+            exit(0); 
+        } else if (pid > 0) {
+            
+            snprintf(response, sizeof(response), "+Background saving started\r\n");
+        } else {
+            snprintf(response, sizeof(response), "-ERR fork failed\r\n");
+        }
     }
     else {
         snprintf(response, sizeof(response), "-ERR Unknown Command\r\n");

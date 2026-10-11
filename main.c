@@ -27,7 +27,8 @@ void set_nonblocking(int sockfd){
 int main(){
     signal(SIGPIPE, SIG_IGN);
     srand(time(NULL));
-
+    signal(SIGCHLD, SIG_IGN);
+    
     init_all_clients();
     ht_init(); 
     ht_load("dump.rdb");
